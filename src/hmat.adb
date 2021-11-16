@@ -10,6 +10,9 @@ package body HMAT is
    function Pop_Count (Value : Unsigned_64; Bit : Bit_Index) return Bit_Count;
    --  Count 1 bits in Value (0 .. Bit) 
 
+   procedure Reference (Self : not null Node_Access) with Inline;
+   procedure Unreference (Self : in out Node_Access) with Inline;
+   
    Active : Change_Count := 0;
 
    ------------
@@ -18,7 +21,10 @@ package body HMAT is
 
    overriding procedure Adjust (Self : in out Map) is
    begin
-      Active := Active + 1;
+      if Self.Root /= null then
+         Reference (Self.Root);
+         Active := Active + 1;
+      end if;
    end Adjust;
 
    --------------
@@ -95,7 +101,7 @@ package body HMAT is
 
    overriding procedure Finalize (Self : in out Map) is
    begin
-      null;
+      Unreference (Self.Root);
    end Finalize;
 
    ------------
@@ -114,6 +120,7 @@ package body HMAT is
          Child : constant Node_Access := new HMAT.Node'
            (Length  => 0,
             Version => Active,
+            Counter => 1,
             Hash    => Key_Hash,
             Key     => Key,
             Item    => Item);
@@ -140,19 +147,36 @@ package body HMAT is
                      Joint : constant Node_Access := new HMAT.Node
                        (Length => Parent.Length + 1);
                   begin
+                     for Child of Parent.Child loop
+                        Reference (Child);
+                     end loop;
+
                      Joint.Version := Active;
+                     Joint.Counter := 1;
                      Joint.Mask := Parent.Mask or 2 ** Bit;
                      Joint.Child (1 .. Index) := Parent.Child (1 .. Index);
                      Joint.Child (Index + 1) := Create_Leaf;
                      Joint.Child (Index + 2 .. Parent.Length + 1) :=
                        Parent.Child (Index + 1 .. Parent.Length);
-                     Free (Parent);
+                     Unreference (Parent);
                      Parent := Joint;
                   end;
                else
                   if Parent.Version /= Active then
-                     Parent := new HMAT.Node'(Parent.all);
-                     Parent.Version := Active;
+                     declare
+                        Joint : constant Node_Access :=
+                           new HMAT.Node'(Parent.all);
+                     begin
+                        Joint.Version := Active;
+                        Joint.Counter := 1;
+
+                        for Child of Joint.Child loop
+                           Reference (Child);
+                        end loop;
+                        
+                        Unreference (Parent);
+                        Parent := Joint;
+                     end;
                   end if;
 
                   Descent (Parent.Child (Index), Shift + 6);
@@ -164,16 +188,19 @@ package body HMAT is
             elsif Parent.Version = Active then
                Parent.Item := Item;
             else
+               Unreference (Parent);
                Parent := Create_Leaf;
             end if;
          elsif (Parent.Hash and Slit) = (Key_Hash and Slit) then
             declare
                Joint : constant Node_Access := new HMAT.Node (Length => 1);
             begin
+               Joint.Version := Active;
+               Joint.Counter := 1;
                Joint.Mask := 2 ** Bit;
                Joint.Child (1) := Parent;
                Parent := Joint;
-               Descent (Joint.Child (1), Shift + 6);
+               Descent (Parent.Child (1), Shift + 6);
             end;
          else
             declare
@@ -181,6 +208,8 @@ package body HMAT is
                Bit_2 : constant Bit_Index :=
                  Bit_Index ((Parent.Hash / 2 ** Shift) and Mask);
             begin
+               Joint.Version := Active;
+               Joint.Counter := 1;
                Joint.Mask := 2 ** Bit or 2 ** Bit_2;
                if Bit < Bit_2 then
                   Joint.Child (1) := Create_Leaf;
@@ -217,5 +246,29 @@ package body HMAT is
 
       return Result;
    end Pop_Count;
+
+   procedure Reference (Self : not null Node_Access) is
+   begin
+      Self.Counter := Self.Counter + 1;
+   end Reference;
+
+   procedure Unreference (Self : in out Node_Access) is
+   begin
+      if Self /= null then
+         Self.Counter := Self.Counter - 1;
+
+         if Self.Counter = 0 then
+            if Self.Length > 0 then
+               for Child of Self.Child loop
+                  Unreference (Child);
+               end loop;
+            end if;
+
+            Free (Self);
+         else
+            Self := null;
+         end if;
+      end if;
+   end Unreference;
 
 end HMAT;

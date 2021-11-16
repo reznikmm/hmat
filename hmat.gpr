@@ -12,5 +12,9 @@ project Hmat is
       for Switches ("ada") use ("--coverage");
    end Linker;
 
+   package Binder is
+      for Switches ("ada") use ("-Es");
+   end Binder;
+
 end Hmat;
 

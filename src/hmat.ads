@@ -35,6 +35,7 @@ private
 
    type Node (Length : Bit_Count) is record
       Version : Change_Count;
+      Counter : Natural;
 
       case Length is
          when 0 =>
