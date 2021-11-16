@@ -1,3 +1,5 @@
+with Ada.Finalization;
+
 generic
    type Key_Type is private;
    type Element_Type is private;
@@ -29,7 +31,11 @@ private
    type Node_Access is access all Node;
    type Node_Access_Array is array (Bit_Count range <>) of Node_Access;
 
+   type Change_Count is mod 2 ** 32;
+
    type Node (Length : Bit_Count) is record
+      Version : Change_Count;
+
       case Length is
          when 0 =>
             Hash : Hash_Type;  --  Hash (Key)
@@ -41,7 +47,12 @@ private
       end case;
    end record;
 
-   type Map is tagged record
+   type Map is new Ada.Finalization.Controlled with record
       Root : Node_Access;
    end record;
+
+   overriding procedure Adjust (Self : in out Map);
+
+   overriding procedure Finalize (Self : in out Map);
+
 end HMAT;
