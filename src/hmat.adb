@@ -8,11 +8,11 @@ package body HMAT is
    procedure Free is new Ada.Unchecked_Deallocation (Node, Node_Access);
 
    function Pop_Count (Value : Unsigned_64; Bit : Bit_Index) return Bit_Count;
-   --  Count 1 bits in Value (0 .. Bit) 
+   --  Count 1 bits in Value (0 .. Bit)
 
    procedure Reference (Self : not null Node_Access) with Inline;
    procedure Unreference (Self : in out Node_Access) with Inline;
-   
+
    Active : Change_Count := 0;
 
    ------------
@@ -23,7 +23,6 @@ package body HMAT is
    begin
       if Self.Root /= null then
          Reference (Self.Root);
-         Active := Active + 1;
       end if;
    end Adjust;
 
@@ -173,7 +172,7 @@ package body HMAT is
                         for Child of Joint.Child loop
                            Reference (Child);
                         end loop;
-                        
+
                         Unreference (Parent);
                         Parent := Joint;
                      end;
@@ -225,6 +224,12 @@ package body HMAT is
       end Descent;
 
    begin
+      if Self.Root /= null
+        and then (Self.Root.Counter > 1 and Self.Root.Version = Active)
+      then
+         Active := Active + 1;
+      end if;
+
       Descent (Self.Root, 0);
    end Insert;
 
