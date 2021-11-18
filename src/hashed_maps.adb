@@ -1,6 +1,6 @@
 with Ada.Unchecked_Deallocation;
 
-package body HMAT is
+package body Hashed_Maps is
 
    --  pragma Compile_Time_Warning
    --    (Hash_Type'Modulus = 2 ** Hash_Type'Size, "Unexpected hash type");
@@ -116,7 +116,7 @@ package body HMAT is
       Key_Hash : constant Hash_Type := Hash (Key);
 
       function Create_Leaf return Node_Access is
-         Child : constant Node_Access := new HMAT.Node'
+         Child : constant Node_Access := new Hashed_Maps.Node'
            (Length  => 0,
             Version => Active,
             Counter => 1,
@@ -143,7 +143,7 @@ package body HMAT is
             begin
                if (Parent.Mask and 2 ** Bit) = 0 then
                   declare
-                     Joint : constant Node_Access := new HMAT.Node
+                     Joint : constant Node_Access := new Hashed_Maps.Node
                        (Length => Parent.Length + 1);
                   begin
                      for Child of Parent.Child loop
@@ -164,7 +164,7 @@ package body HMAT is
                   if Parent.Version /= Active then
                      declare
                         Joint : constant Node_Access :=
-                           new HMAT.Node'(Parent.all);
+                           new Hashed_Maps.Node'(Parent.all);
                      begin
                         Joint.Version := Active;
                         Joint.Counter := 1;
@@ -192,7 +192,7 @@ package body HMAT is
             end if;
          elsif (Parent.Hash and Slit) = (Key_Hash and Slit) then
             declare
-               Joint : constant Node_Access := new HMAT.Node (Length => 1);
+               Joint : constant Node_Access := new Hashed_Maps.Node (Length => 1);
             begin
                Joint.Version := Active;
                Joint.Counter := 1;
@@ -203,7 +203,7 @@ package body HMAT is
             end;
          else
             declare
-               Joint : constant Node_Access := new HMAT.Node (Length => 2);
+               Joint : constant Node_Access := new Hashed_Maps.Node (Length => 2);
                Bit_2 : constant Bit_Index :=
                  Bit_Index ((Parent.Hash / 2 ** Shift) and Mask);
             begin
@@ -276,4 +276,4 @@ package body HMAT is
       end if;
    end Unreference;
 
-end HMAT;
+end Hashed_Maps;

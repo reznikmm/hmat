@@ -8,7 +8,7 @@ generic
    with function Hash (Key : Key_Type) return Hash_Type;
    with function Equivalent_Keys (Left, Right : Key_Type) return Boolean;
 
-package HMAT is
+package Hashed_Maps is
    type Map is tagged private;
 
    procedure Insert
@@ -56,4 +56,4 @@ private
 
    overriding procedure Finalize (Self : in out Map);
 
-end HMAT;
+end Hashed_Maps;

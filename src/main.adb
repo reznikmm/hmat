@@ -1,4 +1,4 @@
-with HMAT;
+with Hashed_Maps;
 with Ada.Containers;
 --  with Ada.Text_IO;
 
@@ -8,7 +8,7 @@ procedure Main is
 
    function Hash (V : Ada.Containers.Hash_Type) return Ada.Containers.Hash_Type is (V);
 
-   package Maps is new HMAT
+   package Maps is new Hashed_Maps
      (Ada.Containers.Hash_Type,
       Positive,
       Ada.Containers.Hash_Type,
