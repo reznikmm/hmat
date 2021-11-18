@@ -1,7 +1,6 @@
 with Hashed_Maps;
 with Ada.Containers;
---  with Ada.Text_IO;
-
+with Ada.Text_IO;
 
 procedure Main is
 --   package Hash_IO is new Ada.Text_IO.Modular_IO (Ada.Containers.Hash_Type);
@@ -85,4 +84,16 @@ begin
       pragma Assert (Map_2.Element (8#01_01_01_01_01#) = 1);
       pragma Assert (Map_2.Element (8#02_02_02_02_01#) = 2);
    end;
+
+   declare
+      Map : Maps.Map;
+   begin
+      Map.Insert (8#01_01_01_01_01#, 1);  --  (1)
+      Map.Insert (8#02_02_02_02_02#, 2);  --  [1: 1, 2: 2]
+
+      for J in Map.Iterate loop
+         Ada.Text_IO.Put_Line (Maps.Key (J)'Image & " => " & Maps.Element (J)'Image);
+      end loop;
+   end;
+
 end Main;

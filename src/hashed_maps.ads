@@ -1,4 +1,5 @@
 with Ada.Finalization;
+with Ada.Iterator_Interfaces;
 
 generic
    type Key_Type is private;
@@ -19,9 +20,24 @@ package Hashed_Maps is
    function Contains (Self : Map; Key : Key_Type) return Boolean;
    function Element (Self : Map; Key : Key_Type) return Element_Type;
 
+   type Cursor is private;
+
+   function Has_Element (Self : Cursor) return Boolean;
+
+   package Iterator_Interfaces is new Ada.Iterator_Interfaces
+      (Cursor, Has_Element);
+
+   type Forward_Iterator is new Iterator_Interfaces.Forward_Iterator
+     with private;
+
+   function Iterate (Self : Map'Class) return Forward_Iterator;
+   function Key (Self : Cursor) return Key_Type;
+   function Element (Self : Cursor) return Element_Type;
+
 private
 
-   Branches : constant := 64;
+   Slit_Bits : constant := 6;
+   Branches  : constant := 2 ** 6;
 
    type Unsigned_64 is mod 2 ** Branches;
    subtype Bit_Count is Natural range 0 .. Branches;
@@ -55,5 +71,22 @@ private
    overriding procedure Adjust (Self : in out Map);
 
    overriding procedure Finalize (Self : in out Map);
+
+   subtype Tree_Depth is Bit_Count range 0 .. Hash_Type'Size / Slit_Bits + 1;
+   
+   type Cursor (Length : Tree_Depth := 1) is record
+      Path : Node_Access_Array (1 .. Length);
+   end record;
+
+   type Forward_Iterator is new Iterator_Interfaces.Forward_Iterator
+     with record
+      First : Cursor;
+   end record;
+
+   overriding function First (Self : Forward_Iterator) return Cursor;
+
+   overriding function Next
+     (Self     : Forward_Iterator;
+      Position : Cursor) return Cursor;
 
 end Hashed_Maps;

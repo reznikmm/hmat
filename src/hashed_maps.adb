@@ -13,6 +13,10 @@ package body Hashed_Maps is
    procedure Reference (Self : not null Node_Access) with Inline;
    procedure Unreference (Self : in out Node_Access) with Inline;
 
+   function Descend (Path : Node_Access_Array) return Cursor;
+   --  Find left leaf child of the last item in Path and return
+   --  corresponding Cursor.
+
    Active : Change_Count := 0;
 
    ------------
@@ -60,6 +64,20 @@ package body Hashed_Maps is
    end Contains;
 
    -------------
+   -- Descend --
+   -------------
+
+   function Descend (Path : Node_Access_Array) return Cursor is
+      Node : constant not null Node_Access := Path (Path'Last);
+   begin
+      if Node.Length = 0 then
+         return (Length => Path'Length, Path => Path);
+      else
+         return Descend (Path & Node.Child (1));
+      end if;
+   end Descend;
+
+   -------------
    -- Element --
    -------------
 
@@ -94,6 +112,15 @@ package body Hashed_Maps is
       return raise Constraint_Error;
    end Element;
 
+   -------------
+   -- Element --
+   -------------
+
+   function Element (Self : Cursor) return Element_Type is
+   begin
+      return Self.Path (Self.Length).Item;
+   end Element;
+
    --------------
    -- Finalize --
    --------------
@@ -102,6 +129,24 @@ package body Hashed_Maps is
    begin
       Unreference (Self.Root);
    end Finalize;
+
+   -----------
+   -- First --
+   -----------
+
+   overriding function First (Self : Forward_Iterator) return Cursor is
+   begin
+      return Self.First;
+   end First;
+
+   -----------------
+   -- Has_Element --
+   -----------------
+
+   function Has_Element (Self : Cursor) return Boolean is
+   begin
+      return Self.Length /= 0;
+   end Has_Element;
 
    ------------
    -- Insert --
@@ -232,6 +277,63 @@ package body Hashed_Maps is
 
       Descent (Self.Root, 0);
    end Insert;
+
+   function Iterate (Self : Map'Class) return Forward_Iterator is
+   begin
+      if Self.Root = null then
+         return (First => (Length => 0, Path => <>));
+      else
+         return (First => Descend ((1 => Self.Root)));
+      end if;
+   end Iterate;
+
+   ---------
+   -- Key --
+   ---------
+
+   function Key (Self : Cursor) return Key_Type is
+   begin
+      return Self.Path (Self.Length).Key;
+   end Key;
+
+   overriding function Next
+     (Self     : Forward_Iterator;
+      Position : Cursor) return Cursor
+   is
+      pragma Unreferenced (Self);
+
+      function Find_Next
+        (Hash  : Hash_Type;
+         Depth : Tree_Depth) return Cursor;
+
+      function Find_Next
+        (Hash  : Hash_Type;
+         Depth : Tree_Depth) return Cursor
+      is
+         Node   : constant not null Node_Access := Position.Path (Depth);
+         Mask   : constant Hash_Type := Hash_Type (Branches - 1);
+         Suffix : constant Hash_Type := Hash / 2 ** (Depth - 1);
+         Bit    : constant Bit_Index := Bit_Index (Suffix and Mask);
+         Index  : constant Bit_Count := Pop_Count (Node.Mask, Bit);
+      begin
+         if Index < Node.Length then
+            return Descend (Position.Path (1 .. Depth) & Node.Child (Index + 1));
+         elsif Depth = 1 then
+            return (Length => 0, Path => <>);
+         else
+            return Find_Next (Hash, Depth - 1);
+         end if;
+      end Find_Next;
+
+   begin
+      if Position.Length <= 1 then
+         return (Length => 0, Path => <>);
+      end if;
+
+      return Find_Next
+         (Hash  => Position.Path (Position.Length).Hash,
+          Depth => Position.Length - 1);
+   end Next;
 
    ---------------
    -- Pop_Count --
