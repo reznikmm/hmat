@@ -1,3 +1,5 @@
+pragma Ada_2022;
+
 with Hashed_Maps;
 with Ada.Containers;
 with Ada.Text_IO;
@@ -86,13 +88,19 @@ begin
    end;
 
    declare
-      Map : Maps.Map;
+      Map : Maps.Map := (1 => 1, 2 => 2);
    begin
-      Map.Insert (8#01_01_01_01_01#, 1);  --  (1)
-      Map.Insert (8#02_02_02_02_02#, 2);  --  [1: 1, 2: 2]
+--      Map.Insert (8#01_01_01_01_01#, 1);  --  (1)
+--      Map.Insert (8#02_02_02_02_02#, 2);  --  [1: 1, 2: 2]
 
-      for J in Map.Iterate loop
-         Ada.Text_IO.Put_Line (Maps.Key (J)'Image & " => " & Maps.Element (J)'Image);
+      for J of Map loop
+         Ada.Text_IO.Put_Line (J'Image);
+
+         J := 3;
+      end loop;
+
+      for J of Map loop
+         Ada.Text_IO.Put_Line (J'Image);
       end loop;
    end;
 

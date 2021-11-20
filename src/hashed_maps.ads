@@ -1,3 +1,5 @@
+pragma Ada_2022;
+
 with Ada.Finalization;
 with Ada.Iterator_Interfaces;
 
@@ -10,19 +12,33 @@ generic
    with function Equivalent_Keys (Left, Right : Key_Type) return Boolean;
 
 package Hashed_Maps is
-   type Map is tagged private;
+   type Map is tagged private
+     with Constant_Indexing => Constant_Indexing,
+       Variable_Indexing => Variable_Indexing,
+       Default_Iterator => Iterate,
+       Iterator_Element => Element_Type,
+       Aggregate        => (Empty     => Empty_Map,
+                            Add_Named => Insert);
+
+   function Empty_Map return Map;
+   --  Return an empty map object
 
    procedure Insert
      (Self : in out Map;
       Key  : Key_Type;
       Item : Element_Type);
+   --  Insert (or replace) an item with given Key into the map
 
    function Contains (Self : Map; Key : Key_Type) return Boolean;
+   --  Check if the map contain given key
+
    function Element (Self : Map; Key : Key_Type) return Element_Type;
+   --  Return item by key
 
    type Cursor is private;
 
    function Has_Element (Self : Cursor) return Boolean;
+   --  Check if the cursor points to any element
 
    package Iterator_Interfaces is new Ada.Iterator_Interfaces
       (Cursor, Has_Element);
@@ -31,8 +47,28 @@ package Hashed_Maps is
      with private;
 
    function Iterate (Self : Map'Class) return Forward_Iterator;
+   --  Iterate over all elements in the map
+
    function Key (Self : Cursor) return Key_Type;
-   function Element (Self : Cursor) return Element_Type;
+   --  Return key correponding to the cursor
+
+   function To_Element (Self : Cursor) return Element_Type;
+   --  Return Element pointed by the cursor
+
+   type Constant_Reference (Element : access constant Element_Type) is
+     null record
+       with Implicit_Dereference => Element;
+
+   function Constant_Indexing
+     (Self     : Map;
+      Position : Cursor) return Constant_Reference;
+
+   type Variable_Reference (Element : access Element_Type) is null record
+     with Implicit_Dereference => Element;
+
+   function Variable_Indexing
+     (Self     : in out Map;
+      Position : Cursor) return Variable_Reference;
 
 private
 
@@ -57,7 +93,7 @@ private
          when 0 =>
             Hash : Hash_Type;  --  Hash (Key)
             Key  : Key_Type;
-            Item : Element_Type;
+            Item : aliased Element_Type;
          when 1 .. Branches =>
             Mask  : Unsigned_64;
             Child : Node_Access_Array (1 .. Length);
@@ -73,7 +109,7 @@ private
    overriding procedure Finalize (Self : in out Map);
 
    subtype Tree_Depth is Bit_Count range 0 .. Hash_Type'Size / Slit_Bits + 1;
-   
+
    type Cursor (Length : Tree_Depth := 1) is record
       Path : Node_Access_Array (1 .. Length);
    end record;

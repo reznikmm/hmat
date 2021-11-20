@@ -17,6 +17,12 @@ package body Hashed_Maps is
    --  Find left leaf child of the last item in Path and return
    --  corresponding Cursor.
 
+   function To_Index
+     (Node  : Node_Access;
+      Hash  : Hash_Type;
+      Depth : Bit_Index) return Bit_Count;
+   --   Find an index in Node.Child for given Hash and Depth in bits
+
    Active : Change_Count := 0;
 
    ------------
@@ -29,6 +35,16 @@ package body Hashed_Maps is
          Reference (Self.Root);
       end if;
    end Adjust;
+
+   -----------------------
+   -- Constant_Indexing --
+   -----------------------
+
+   function Constant_Indexing (Self : Map; Position : Cursor)
+     return Constant_Reference is
+   begin
+      return (Element => Position.Path (Position.Length).Item'Access);
+   end Constant_Indexing;
 
    --------------
    -- Contains --
@@ -84,7 +100,7 @@ package body Hashed_Maps is
    function Element (Self : Map; Key : Key_Type) return Element_Type is
       Key_Hash : constant Hash_Type := Hash (Key);
       Mask     : constant Hash_Type := Hash_Type (Branches - 1);
-      Next   : Node_Access := Self.Root;
+      Next     : Node_Access := Self.Root;
       Rest     : Hash_Type := Key_Hash;
    begin
       while Next /= null loop
@@ -116,10 +132,19 @@ package body Hashed_Maps is
    -- Element --
    -------------
 
-   function Element (Self : Cursor) return Element_Type is
+   function To_Element (Self : Cursor) return Element_Type is
    begin
       return Self.Path (Self.Length).Item;
-   end Element;
+   end To_Element;
+
+   ---------------
+   -- Empty_Map --
+   ---------------
+
+   function Empty_Map return Map is
+   begin
+      return (Ada.Finalization.Controlled with Root => null);
+   end Empty_Map;
 
    --------------
    -- Finalize --
@@ -223,7 +248,7 @@ package body Hashed_Maps is
                      end;
                   end if;
 
-                  Descent (Parent.Child (Index), Shift + 6);
+                  Descent (Parent.Child (Index), Shift + Slit_Bits);
                end if;
             end;
          elsif Parent.Hash = Key_Hash then
@@ -237,18 +262,20 @@ package body Hashed_Maps is
             end if;
          elsif (Parent.Hash and Slit) = (Key_Hash and Slit) then
             declare
-               Joint : constant Node_Access := new Hashed_Maps.Node (Length => 1);
+               Joint : constant Node_Access :=
+                 new Hashed_Maps.Node (Length => 1);
             begin
                Joint.Version := Active;
                Joint.Counter := 1;
                Joint.Mask := 2 ** Bit;
                Joint.Child (1) := Parent;
                Parent := Joint;
-               Descent (Parent.Child (1), Shift + 6);
+               Descent (Parent.Child (1), Shift + Slit_Bits);
             end;
          else
             declare
-               Joint : constant Node_Access := new Hashed_Maps.Node (Length => 2);
+               Joint : constant Node_Access :=
+                 new Hashed_Maps.Node (Length => 2);
                Bit_2 : constant Bit_Index :=
                  Bit_Index ((Parent.Hash / 2 ** Shift) and Mask);
             begin
@@ -277,6 +304,10 @@ package body Hashed_Maps is
 
       Descent (Self.Root, 0);
    end Insert;
+
+   -------------
+   -- Iterate --
+   -------------
 
    function Iterate (Self : Map'Class) return Forward_Iterator is
    begin
@@ -311,10 +342,8 @@ package body Hashed_Maps is
          Depth : Tree_Depth) return Cursor
       is
          Node   : constant not null Node_Access := Position.Path (Depth);
-         Mask   : constant Hash_Type := Hash_Type (Branches - 1);
-         Suffix : constant Hash_Type := Hash / 2 ** (Depth - 1);
-         Bit    : constant Bit_Index := Bit_Index (Suffix and Mask);
-         Index  : constant Bit_Count := Pop_Count (Node.Mask, Bit);
+         Index  : constant Bit_Count :=
+           To_Index (Node, Hash, (Depth - 1) * Slit_Bits);
       begin
          if Index < Node.Length then
             return Descend (Position.Path (1 .. Depth) & Node.Child (Index + 1));
@@ -359,6 +388,23 @@ package body Hashed_Maps is
       Self.Counter := Self.Counter + 1;
    end Reference;
 
+   --------------
+   -- To_Index --
+   --------------
+
+   function To_Index
+     (Node  : Node_Access;
+      Hash  : Hash_Type;
+      Depth : Bit_Index) return Bit_Count
+   is
+      Mask   : constant Hash_Type := Hash_Type (Branches - 1);
+      Suffix : constant Hash_Type := Hash / 2 ** Depth;
+      Bit    : constant Bit_Index := Bit_Index (Suffix and Mask);
+      Index  : constant Bit_Count := Pop_Count (Node.Mask, Bit);
+   begin
+      return Index;
+   end To_Index;
+
    procedure Unreference (Self : in out Node_Access) is
    begin
       if Self /= null then
@@ -377,5 +423,46 @@ package body Hashed_Maps is
          end if;
       end if;
    end Unreference;
+
+   -----------------------
+   -- Variable_Indexing --
+   -----------------------
+
+   function Variable_Indexing
+     (Self : in out Map; Position : Cursor) return Variable_Reference
+   is
+      Hash    : constant Hash_Type := Position.Path (Position.Length).Hash;
+      Changed : Boolean := False;
+      Copy    : Node_Access_Array (Position.Path'Range);
+      Next    : Node_Access;
+   begin
+      if Self.Root.Counter > 1 and Self.Root.Version = Active then
+         Active := Active + 1;
+      end if;
+
+      for J in reverse Position.Path'Range loop
+         Next := Position.Path (J);
+
+         if Changed
+           or Next.Counter > 1
+           or Next.Version = Active
+         then
+            Changed := True;
+            Next := new Node'(Next.all);
+            Next.Counter := 1;
+            Next.Version := Active;
+
+            if Next.Length > 0 then
+               Next.Child (To_Index (Next, Hash, (J - 1) * Slit_Bits)) :=
+                 Copy (J + 1);
+            end if;
+         end if;
+
+         Copy (J) := Next;
+      end loop;
+
+      Self.Root := Copy (1);
+      return (Element => Copy (Position.Length).Item'Access);
+   end Variable_Indexing;
 
 end Hashed_Maps;
