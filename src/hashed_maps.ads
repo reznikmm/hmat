@@ -10,6 +10,7 @@ generic
 
    with function Hash (Key : Key_Type) return Hash_Type;
    with function Equivalent_Keys (Left, Right : Key_Type) return Boolean;
+   with function "=" (Left, Right : Element_Type) return Boolean is <>;
 
 package Hashed_Maps is
    type Map is tagged private
@@ -19,6 +20,9 @@ package Hashed_Maps is
        Iterator_Element => Element_Type,
        Aggregate        => (Empty     => Empty_Map,
                             Add_Named => Insert);
+
+   function "=" (Left : Map; Right : Map) return Boolean;
+   --  Compare two maps. This is fast ifone was copied from another.
 
    function Empty_Map return Map;
    --  Return an empty map object

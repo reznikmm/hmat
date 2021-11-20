@@ -25,6 +25,33 @@ package body Hashed_Maps is
 
    Active : Change_Count := 0;
 
+   ---------
+   -- "=" --
+   ---------
+
+   function "=" (Left : Map; Right : Map) return Boolean is
+      function Compare (Left, Right : Node_Access) return Boolean;
+      --  Compare Left and Right subtries
+
+      function Compare (Left, Right : Node_Access) return Boolean is
+      begin
+         if Left = Right then
+            return True;
+         elsif Left = null xor Right = null then
+            return False;
+         elsif Left.Length /= Right.Length then
+            return False;
+         elsif Left.Length = 0 then
+            return Left.Item = Right.Item;
+         else
+            return (for all J in 1 .. Left.Length =>
+                      Compare (Left.Child (J), Right.Child (J)));
+         end if;
+      end Compare;
+   begin
+      return Compare (Left.Root, Right.Root);
+   end "=";
+
    ------------
    -- Adjust --
    ------------

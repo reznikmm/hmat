@@ -88,6 +88,21 @@ begin
    end;
 
    declare
+      use type Maps.Map;
+      Map, Map_2 : Maps.Map;
+   begin
+      pragma Assert (Map = Maps.Empty_Map);
+      Map.Insert (8#01_01_01_01_01#, 1);  --  (1)
+      pragma Assert (Map /= Map_2);
+      Map_2.Insert (8#01_01_01_01_01#, 1);  --  (1)
+      pragma Assert (Map = Map_2);
+      Map.Insert (8#02_02_02_02_01#, 2);  --  [1: [1:1, 2: 2]]
+      pragma Assert (Map /= Map_2);
+      Map_2.Insert (8#02_02_02_02_01#, 2);  --  [1: [1:1, 2: 2]]
+      pragma Assert (Map = Map_2);
+   end;
+
+   declare
       Map : Maps.Map := (1 => 1, 2 => 2);
    begin
 --      Map.Insert (8#01_01_01_01_01#, 1);  --  (1)
